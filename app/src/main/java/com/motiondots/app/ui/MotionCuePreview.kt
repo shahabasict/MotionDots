@@ -23,12 +23,22 @@ fun MotionCuePreview(
     // Read latest estimate periodically
     val estimate by rememberUpdatedState(estimatorProvider())
 
+    // Configuration / tunables
+    val DOT_COUNT = 10 // default dot count
+    val MOTION_DEADZONE = 0.02f // small dead-zone to ignore sensor noise
+    val MAX_DISP_RATIO = 0.25f // max displacement ratio of half-dimension (tuned)
+    val RESPOND_MS = 100 // quicker response
+    val RETURN_MS = 250 // smoother return to neutral
+
     // Smooth motionIntensity for visual stability
     val smoothIntensity = remember { Animatable(0f) }
     LaunchedEffect(estimate?.motionIntensity) {
-        val target = estimate?.motionIntensity ?: 0f
-        // short tween for smoothness
-        smoothIntensity.animateTo(target.coerceIn(0f, 1f), animationSpec = tween(150))
+        val raw = estimate?.motionIntensity ?: 0f
+        // apply dead-zone mapping
+        val target = if (raw <= MOTION_DEADZONE) 0f else ((raw - MOTION_DEADZONE) / (1f - MOTION_DEADZONE)).coerceIn(0f, 1f)
+        // choose animation duration: quick to respond, slower to return
+        val duration = if (target > smoothIntensity.value) RESPOND_MS else RETURN_MS
+        smoothIntensity.animateTo(target, animationSpec = tween(duration))
     }
 
     val dirX = estimate?.horizontalX ?: 0f
@@ -44,8 +54,8 @@ fun MotionCuePreview(
             val rx = (w / 2f) - padding
             val ry = (h / 2f) - padding
 
-            val nDots = 10
-            val maxDisp = (minOf(rx, ry) * 0.35f)
+            val nDots = DOT_COUNT
+            val maxDisp = (minOf(rx, ry) * MAX_DISP_RATIO)
 
             // direction vector
             val dlen = kotlin.math.sqrt((dirX * dirX + dirY * dirY).toDouble()).toFloat()

@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+/build/
+**/build/
+/.gradle
+/.idea
+.gradle
+/.DS_Store
+
+# Android Studio
+.idea/
+*.iml
+
+# Kotlin
+*.kotlin_module
+
+# Gradle wrapper
+gradle/wrapper/gradle-wrapper.jar
+
+# Local env files
+local.properties

@@ -23,3 +23,16 @@ What was created:
 Build verification:
 
 - Executed `./gradlew assembleDebug` successfully and verified `app/build/outputs/apk/debug/app-debug.apk` exists.
+
+## Phase 3 - Accelerometer Integration
+
+What was created:
+
+- AccelerometerSensor component (app/src/main/java/com/motiondots/app/sensor/AccelerometerSensor.kt) that exposes raw X/Y/Z readings over a StateFlow. It handles registration/unregistration with SensorManager and detects missing hardware.
+- Diagnostics screen updated to start/stop accelerometer listening while visible and to render a live accelerometer graph (X/Y/Z) using a small in-memory buffer for recent samples.
+- Numeric readout of current X/Y/Z values placed above the accelerometer graph to help physical-device testing.
+
+Build & test verification:
+
+- Built APK with `./gradlew assembleDebug`.
+- Installed APK on a connected Android phone via `adb install -r` and verified that the Diagnostics screen shows live accelerometer data and numerical X/Y/Z values while the device is moved.

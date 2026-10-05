@@ -119,6 +119,27 @@ Physical validation summary:
 
 Overall validation status: PARTIAL — stationary baseline and lateral translation observed; further tests required for robust conclusions.
 
+## Phase 9 - Investigate Motion Signal
+Status: Analysis (no code change)
+
+Findings (summary):
+- Confirmed: accelerometer measures proper acceleration including gravity; MotionProcessor rotates device accelerations to world frame and subtracts g = 9.80665 m/s^2 on world Z to produce gravity-compensated linear acceleration.
+- Confirmed: One Euro filtering is applied independently per axis with defaults minCutoff=0.4 Hz, beta=0.007, dCutoff=1.0 Hz; this causes notable smoothing that can attenuate short-duration acceleration pulses.
+- Confirmed: VehicleMotionEstimator computes horizontalMagnitude = sqrt(filteredX^2 + filteredY^2) and normalizes by a heuristic 3.0 m/s^2 scale to produce motionIntensity.
+
+Hypotheses explaining ambiguous test results (to be experimentally verified):
+- H1: Phone-to-world axis projection — forward/back translations may not project strongly onto world X/Y depending on phone orientation (explains weak linear-movement signal).
+- H2: Filter bandwidth attenuation — One Euro defaults may smooth short translation pulses enough to reduce hmag visibility.
+- H3: Orientation/compensation transients — latencies or asynchronous sampling between orientation and accelerometer produce residual gravity components during rotation, causing transient horizontal spikes.
+- H4: Rotation-induced centripetal accelerations — phone rotations (especially off-center) can produce accelerometer signals that mimic translation.
+
+Minimum experiments recommended (no code change first):
+1. E1: Compare raw gravity-compensated world values (raw a_world - g) vs filtered outputs in Diagnostics for short translation bursts to confirm filter attenuation.
+2. E2: Correlate gyroscope magnitude with hmag spikes to determine whether rotation events cause estimator transients.
+3. E3 (optional, minimal code change): Add temporary debug logging that emits raw+filtered world values and gyro magnitude in a single adb-loggable line to simplify correlation.
+
+Action taken: analysis and documentation only. No application code changes were made in Phase 9. If you approve E3, I will implement a minimal DEBUG log emission and run targeted captures.
+
 Limitations:
 - The estimator is intentionally simple and experimental. It does not map phone axes to vehicle axes, does not perform dead-reckoning, and does not fuse gyroscope data into the translational estimate.
 - Motion intensity uses a heuristic normalization scale (3.0 m/s^2) and should be tuned with physical tests.

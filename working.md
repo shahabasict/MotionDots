@@ -135,3 +135,16 @@ TEST 5 — STATIC ORIENTATIONS
 Notes:
 - TEST 6 (Real vehicle) was skipped (not a passenger).
 - All observations above are taken from MotionDotsEst logs captured via adb logcat during each 15s test window and are reported without modification.
+
+Phase 9 - investigation plan:
+
+- Performed code inspection and analysis of the full pipeline (accelerometer -> orientation -> device->world rotation -> gravity compensation -> One Euro filtering -> estimator).
+- Confirmed facts and hypotheses are documented in analysis.md. No application code was changed.
+- Recommended minimal experiments:
+  - E1: Use existing Diagnostics numeric readouts to compare raw gravity-compensated world values to filtered outputs during brief, controlled linear translations and rotations.
+  - E2: Correlate gyroscope magnitude with hmag spikes to test whether rotation causes contamination.
+  - E3 (optional, code-minimal): Add temporary debug logging of raw+filtered+gyro magnitude (DEBUG log) to capture synchronized traces via adb logcat for repeatable tests.
+
+Next actions (pending your decision):
+- I will perform E1/E2 via guided tests and record results, or
+- If you prefer, I can implement E3 (small debug logging) and run targeted captures. Implement only after you confirm.

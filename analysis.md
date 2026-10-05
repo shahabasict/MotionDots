@@ -182,3 +182,81 @@ Estimator output (to be implemented):
 - motion_intensity = clamp(horizontal_magnitude / S, 0.0, 1.0) where S is a chosen scale (e.g., 3.0 m/s^2) representing a moderate acceleration magnitude used to normalize intensity.
 
 The implementation will document the chosen S and rationale; it is heuristic and intended for experimentation only.
+
+## Phase 9 - Investigate Motion Signal Before Dot Mapping
+
+Objective
+- Analyze the existing motion-processing pipeline (accelerometer -> orientation -> device->world rotation -> gravity compensation -> One Euro filtering -> estimator) to explain observed behaviours from Phase 8 physical validation and to identify minimal experiments or changes required to resolve uncertainties.
+
+Confirmed facts (from code inspection)
+- Accelerometer semantics: Android accelerometer returns "proper acceleration" in device coordinates (includes gravity + linear acceleration) in m/s^2.
+- Gravity compensation in MotionProcessor: the code rotates the device accelerometer vector into the world frame using the rotation-vector -> quaternion orientation and computes linear acceleration by subtracting a constant gravity vector G = 9.80665 m/s^2 in world Z: lin_z = wz - G; lin_x = wx; lin_y = wy. This matches the documented convention where g_world = (0,0,+9.80665) (positive UP) and a_linear = a_world - g_world.
+- Quaternion rotation: MotionProcessor.rotateVectorByQuaternion implements v_world = q * v_dev * q_conj. The implementation follows the standard quaternion product formula and then extracts the vector part. The repository exposes both raw gravity-compensated world acceleration (x,y,z) and filtered values stored in WorldAcceleration.
+- Filtering: OneEuroFilter is applied independently to each axis via OneEuroVectorFilter with defaults minCutoff=0.4 Hz, beta=0.007, dCutoff=1.0 Hz. The scalar filter implements the standard derivative-smoothing + adaptive-cutoff equations.
+- Estimator: VehicleMotionEstimator currently computes horizontalMagnitude = sqrt(filteredX^2 + filteredY^2) and motionIntensity = clamp(horizontalMagnitude / NORMALIZATION_SCALE, 0..1) with NORMALIZATION_SCALE = 3.0f.
+
+Observed behaviours to explain (from Phase 8 logs)
+- Stationary baseline: small hmag (~0.0007..0.0099 m/s^2) — PASS.
+- Sideways movement: produced clear hmag spikes up to ~0.02 m/s^2 — PASS.
+- Linear forward/back movement: captured hmag ranges similar to stationary (INCONCLUSIVE/no clear sustained increase).
+- Rotation in place and orientation changes: produced transient spikes in hmag and fz, sometimes returning to baseline.
+
+Hypotheses that explain observations (distinguish from confirmed facts)
+- H1 — Axis alignment and user motion vectors: The phone's world X/Y axes may not align with the direction the user moves the phone during "linear" tests. If forward/back translation projected poorly onto the world X/Y axes (for example most of motion projected onto device axis that maps to world Z or small horizontal components), horizontalMagnitude would remain small while sideways motion (which happens to map strongly to world X/Y) appears larger. This is a geometry/projection hypothesis and depends only on phone orientation in the vehicle/user frame.
+
+- H2 — One Euro smoothing removes short translational bursts: With minCutoff=0.4Hz and beta small, One Euro applies substantial smoothing for short-duration accelerations. Short forward/back pushes (brief pulses) may be attenuated, so hmag does not rise much. Sideways movement performed in the test may have been more sustained or had larger amplitude, making it more likely to exceed the filter's smoothing.
+
+- H3 — Gravity-compensation transient due to orientation latency: When the phone rotates, the orientation quaternion from the rotation-vector sensor lags or is sampled independently of accelerometer samples. If orientation and accelerometer timestamps are not tightly synchronized, gravity subtraction can briefly be incorrect (residual gravity components remain), causing transient horizontal components until orientation updates catch up. These transients appear as hmag spikes during rotation or orientation change.
+
+- H4 — Sensor noise and biases: Sensor noise floor, biases, and small vibrations (hand tremor) may produce low-level hmag that is nonzero even when stationary. The One Euro filter reduces noise but not eliminate it; residual determines the stationary baseline.
+
+- H5 — Centripetal/rotational accelerations: Pure rotations around axes offset from the accelerometer's center produce centripetal accelerations proportional to omega^2 * r (and Coriolis-like effects). If rotation is not exactly about the phone's center, accelerometer may register translational acceleration even when the user intends only rotation. This can produce hmag spikes during rotation-in-place tests.
+
+Detailed analysis of pipeline components and their role
+
+1) Accelerometer semantics and gravity compensation
+- Confirmed: accelerometer measures proper acceleration (including gravity). MotionProcessor rotates this vector into the world frame and subtracts g_world = (0,0,+9.80665). This yields an estimated linear acceleration in world coordinates. If the quaternion q is accurate and timely, this subtraction removes gravity; otherwise residual appears.
+
+2) Rotation-vector / quaternion transform
+- Confirmed: q is read from OrientationReading (qw,qx,qy,qz) and used to rotate the device vector to world frame. The implementation uses only accelerometer.timestamp for filter dt; orientation timestamp is not explicitly used in the filter path. If orientation updates lag or have different timestamps, transient mismatches can occur.
+
+3) World coordinate conventions
+- Confirmed: World Z is vertical, positive UP. Gravity is +9.80665 in Z and subtracted only from world Z component.
+
+4) One Euro filter parameters and smoothing behaviour
+- Confirmed: default minCutoff=0.4 Hz imposes strong smoothing for signals below ~0.4 Hz. For sensor sampling dt ≈ 0.02–0.05 s, alpha ≈ 0.03–0.11 for fc=0.4Hz, which attenuates short events. The derivative path has dCutoff=1.0 Hz which also smooths derivative estimates.
+- Hypothesis (H2): short, brief linear translations may be smoothed too strongly and therefore not appear as large hmag after filtering.
+
+5) VehicleMotionEstimator calculation
+- Confirmed: hmag = hypot(filteredX, filteredY). This is rotation-invariant in the horizontal plane (independent of choice of X vs Y) but depends on filtered values. Therefore any attenuation by the filter directly reduces hmag.
+
+6) Gyroscope role to distinguish rotation vs translation
+- Confirmed fact: gyroscope sensor is available in the app and its numeric values are visible in Diagnostics. Not fused into estimator.
+- Hypothesis (H3/H5): high gyroscope magnitude concurrent with hmag spikes implies rotation contamination (orientation/centripetal), so gyroscope can be used to classify/ignore those periods. A simple experiment is to correlate gyro magnitude to hmag spikes to see if spikes align with angular rate peaks.
+
+Suitability of current signal as vehicle-motion proxy
+- Confirmed: filtered world-frame horizontal magnitude is a reasonable proxy for horizontal translational activity but only if the phone-to-vehicle orientation is suitable (or if magnitude, not axis direction, is sufficient). The current estimator is intentionally simple and useful as an experimental proxy.
+- Limitations: sensitivity depends on filter bandwidth, orientation alignment, and transient orientation-compensation fidelity. Without phone-to-vehicle calibration, some maneuvers (forward/back) may not project strongly onto world X/Y depending on phone placement/orientation.
+
+Minimum experiments / changes to resolve uncertainty (recommendations)
+
+Experiment E1 (no code changes): Record raw (unfiltered) gravity-compensated world-frame acceleration values alongside filtered ones using the existing Diagnostics UI. Use the app's numerical readouts (Raw World X/Y/Z and Filtered X/Y/Z) while performing short, controlled movements. This will show whether the filter is attenuating short events (if raw shows pulses but filtered is small).
+
+Experiment E2 (no code changes): While performing rotation-in-place tests, simultaneously watch gyroscope readings in Diagnostics and log them via adb. Manually correlate high angular rates with hmag spikes. If spikes align with high gyro, rotation contamination is likely.
+
+Experiment E3 (code-minimal): Add a temporary debug log (adb logcat MotionDotsEst already logs filtered values) to also emit raw gravity-compensated world values and gyroscope magnitude in the same log line (requires a small, targeted logging addition). This will help correlate quickly in a single log stream. If accepted, implement as a minimal, temporary debug log only.
+
+Minimal implementation change (if authorized):
+- Add optional debug logging in Diagnostics or where MotionProcessor/latest is observed that logs raw world values (x,y,z), filtered values, and current gyroscope magnitude when the estimator runs. Guard this behind a debug flag or only log at DEBUG level so it can be removed after experiments. This is minimal and does not alter estimator behavior.
+
+Suggested next steps (order)
+1. Run E1 and E2 (manual tests using existing UI) to confirm whether raw world values contain the short pulses that the filtered output suppresses, and whether gyro peaks coincide with hmag spikes. These require no code changes.
+2. If E1 confirms heavy smoothing removes pulses, perform E3: add temporary debug logging of both raw and filtered values and gyroscope magnitude for more precise correlation, then repeat tests.
+3. If rotation contamination is confirmed, plan a small enhancement: suppress or flag estimator outputs when gyro magnitude exceeds a threshold (simple heuristic), or incorporate gyro-derived context to reduce false positives. That is a minimal, well-justified change but should be implemented only after E2/E3 confirm the hypothesis.
+
+What to record in Phase 9 deliverables
+- analysis.md: this section (confirmed facts vs hypotheses and minimal experiment plan).
+- working.md: short note describing Phase 9 investigation and recommended E1–E3 experiments.
+- report.md: concise Phase 9 summary listing findings and next steps.
+
+No code changes are made in this analysis step. If you want me to implement the minimal debug logging (E3) I will do a small change, build, and run further tests; otherwise proceed with the manual experiments (E1/E2) and report results.

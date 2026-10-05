@@ -48,3 +48,20 @@ Added `gradle.properties` with `android.useAndroidX=true` and `android.enableJet
 
 ### Status
 Resolved.
+
+## Blocker #003 - Physical-device test access
+### Problem
+Physical-device motion tests for Phase 8 were not executed from this environment because a connected Android device was not accessible to the running agent.
+
+### Investigation
+The build step (`./gradlew assembleDebug`) completed successfully and produced an APK, but installing and interactively testing on a device requires adb access and a physically connected phone controlled by the developer.
+
+### Solution / Workaround
+Run the following locally on the developer machine with the phone connected:
+
+1. Install the APK: `adb install -r app/build/outputs/apk/debug/app-debug.apk`
+2. Launch the app on the phone, open Diagnostics, and observe the "Vehicle motion estimate (experimental)" card.
+3. Perform the controlled tests described in working.md and record observations in working.md or report.md.
+
+### Status
+Open — requires manual execution on a development device.

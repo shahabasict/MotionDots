@@ -86,3 +86,31 @@ Notes (what is missing from documentation):
 
 ## Phase 8 - Motion Analysis
 Status: Not Started
+
+## Phase 8 - Vehicle Motion Estimation
+Status: In Progress (implemented, needs physical testing)
+
+Objective:
+- Create a simple, experimental vehicle-motion estimation layer that derives a motion-intensity proxy from filtered world-frame acceleration.
+
+Implementation (facts):
+- A VehicleMotionEstimator component was added at app/src/main/java/com/motiondots/app/estimator/VehicleMotionEstimator.kt. It consumes filtered world-frame acceleration (WorldAcceleration) and computes:
+  - filtered_world_x, filtered_world_y, filtered_world_z (m/s^2)
+  - horizontal_x, horizontal_y
+  - horizontal_magnitude = sqrt(x^2 + y^2)
+  - motion_intensity = clamp(horizontal_magnitude / 3.0, 0..1) (heuristic normalization)
+- Diagnostics UI updated (app/src/main/java/com/motiondots/app/ui/MotionDotsApp.kt) to replace the previous "Processed motion" section with "Vehicle motion estimate (experimental)", showing numeric readouts for filtered components, horizontal magnitude, motion intensity, and a small graph.
+
+Tests performed:
+- Code build: `./gradlew assembleDebug` succeeded and produced app/build/outputs/apk/debug/app-debug.apk.
+- No physical-device motion tests were performed from this environment (device access not available). See Blockers.md for details.
+
+Limitations:
+- The estimator is intentionally simple and experimental. It does not map phone axes to vehicle axes, does not perform dead-reckoning, and does not fuse gyroscope data into the translational estimate.
+- Motion intensity uses a heuristic normalization scale (3.0 m/s^2) and should be tuned with physical tests.
+
+Build result:
+- BUILD SUCCESSFUL; APK path: app/build/outputs/apk/debug/app-debug.apk
+
+Git commit:
+- Current commit contains Phase 8 implementation: (will appear in git log) "Phase 8: Add vehicle motion estimation"

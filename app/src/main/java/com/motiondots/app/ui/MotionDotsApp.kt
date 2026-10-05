@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.collectLatest
 import com.motiondots.app.sensor.MotionProcessor
 import com.motiondots.app.sensor.WorldAcceleration
+import com.motiondots.app.estimator.VehicleMotionEstimator
+import com.motiondots.app.estimator.VehicleMotion
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -252,107 +254,87 @@ fun DiagnosticsScreen() {
             }
         }
 
-        // Processed motion: gravity-compensated world-frame acceleration
+        // Vehicle motion estimation (Phase 8): derive a simple motion proxy from filtered world-frame acceleration
         val motionProcessor = remember { MotionProcessor(sensor.reading, orientationSensor.reading) }
-        DiagnosticCard(title = "Processed motion") {
+        DiagnosticCard(title = "Vehicle motion estimate (experimental)") {
             // start/stop processor with lifecycle
             DisposableEffect(motionProcessor) {
                 motionProcessor.start()
                 onDispose { motionProcessor.stop() }
             }
 
-            val processedSamples = remember { mutableStateListOf<com.motiondots.app.sensor.WorldAcceleration>() }
-            // poll processor.latest periodically via LaunchedEffect on recompute
+            val estimator = remember { VehicleMotionEstimator { motionProcessor.latest } }
+            val estimates = remember { mutableStateListOf<com.motiondots.app.estimator.VehicleMotion>() }
+
+            // poll estimator periodically and keep a short buffer for plotting
             LaunchedEffect(Unit) {
                 while (true) {
-                    val latest = motionProcessor.latest
-                    latest?.let {
-                        processedSamples.add(it)
-                        if (processedSamples.size > 80) processedSamples.removeAt(0)
+                    val e = estimator.estimate()
+                    e?.let {
+                        estimates.add(it)
+                        if (estimates.size > 80) estimates.removeAt(0)
                     }
-                    // small delay to avoid busy loop; rely on sensor update cadence
                     kotlinx.coroutines.delay(40)
                 }
             }
 
-            if (processedSamples.isEmpty()) {
-                Text("Waiting for processed motion data...", color = Color.Gray)
+            if (estimates.isEmpty()) {
+                Text("Waiting for vehicle-motion estimates...", color = Color.Gray)
             } else {
-                val last = processedSamples.last()
+                val last = estimates.last()
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column {
-                        Text("Raw World X: ${String.format("%.3f", last.x)} m/s²")
-                        Text("Raw World Y: ${String.format("%.3f", last.y)} m/s²")
-                        Text("Raw World Z: ${String.format("%.3f", last.z)} m/s²")
+                        Text("Filtered World X: ${String.format("%.3f", last.filteredX)} m/s²")
+                        Text("Filtered World Y: ${String.format("%.3f", last.filteredY)} m/s²")
+                        Text("Filtered World Z: ${String.format("%.3f", last.filteredZ)} m/s²")
                     }
                     Column {
-                        Text("Filtered X: ${String.format("%.3f", last.filteredX ?: Float.NaN)} m/s²")
-                        Text("Filtered Y: ${String.format("%.3f", last.filteredY ?: Float.NaN)} m/s²")
-                        Text("Filtered Z: ${String.format("%.3f", last.filteredZ ?: Float.NaN)} m/s²")
+                        Text("Horizontal magnitude: ${String.format("%.3f", last.horizontalMagnitude)} m/s²")
+                        Text("Motion intensity: ${String.format("%.3f", last.motionIntensity)} (0..1)")
                     }
                 }
+
                 Spacer(modifier = Modifier.height(8.dp))
-                // draw simple graph using existing Canvas approach
+                // draw horizontal magnitude (raw) and motion intensity (scaled) as a simple graph
                 Canvas(modifier = Modifier
                     .height(120.dp)
                     .fillMaxWidth()) {
                     val w = size.width
                     val h = size.height
-                    val n = processedSamples.size
+                    val n = estimates.size
                     if (n >= 2) {
                         val step = w / (n - 1).coerceAtLeast(1)
-                        var maxAbs = 0f
-                        processedSamples.forEach { arr ->
-                            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr.x))
-                            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr.y))
-                            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr.z))
+                        var maxMag = 0f
+                        estimates.forEach { arr ->
+                            maxMag = kotlin.math.max(maxMag, kotlin.math.abs(arr.horizontalMagnitude))
                         }
-                        if (maxAbs == 0f) maxAbs = 1f
+                        if (maxMag == 0f) maxMag = 1f
 
-                        val pathX = Path()
-                        val pathY = Path()
-                        val pathZ = Path()
+                        val pathMag = Path()
+                        val pathIntensity = Path()
 
-                        val pathXf = Path()
-                        val pathYf = Path()
-                        val pathZf = Path()
-
-                        processedSamples.forEachIndexed { i, arr ->
+                        estimates.forEachIndexed { i, arr ->
                             val x = i * step
-                            val vx = (arr.x / maxAbs) * (h / 2f)
-                            val vy = (arr.y / maxAbs) * (h / 2f)
-                            val vz = (arr.z / maxAbs) * (h / 2f)
-
-                            val vxf = ((arr.filteredX ?: arr.x) / maxAbs) * (h / 2f)
-                            val vyf = ((arr.filteredY ?: arr.y) / maxAbs) * (h / 2f)
-                            val vzf = ((arr.filteredZ ?: arr.z) / maxAbs) * (h / 2f)
+                            val vmag = (arr.horizontalMagnitude / maxMag) * (h / 2f)
+                            // intensity is already normalized 0..1; scale to canvas height
+                            val vint = (arr.motionIntensity) * (h / 2f)
 
                             val px = x.toFloat()
-                            val yx = h / 2f - vx
-                            val yy = h / 2f - vy
-                            val yz = h / 2f - vz
-
-                            val yxf = h / 2f - vxf
-                            val yyf = h / 2f - vyf
-                            val yzf = h / 2f - vzf
+                            val ymag = h / 2f - vmag
+                            val yint = h / 2f - vint
 
                             if (i == 0) {
-                                pathX.moveTo(px, yx); pathY.moveTo(px, yy); pathZ.moveTo(px, yz)
-                                pathXf.moveTo(px, yxf); pathYf.moveTo(px, yyf); pathZf.moveTo(px, yzf)
+                                pathMag.moveTo(px, ymag)
+                                pathIntensity.moveTo(px, yint)
                             } else {
-                                pathX.lineTo(px, yx); pathY.lineTo(px, yy); pathZ.lineTo(px, yz)
-                                pathXf.lineTo(px, yxf); pathYf.lineTo(px, yyf); pathZf.lineTo(px, yzf)
+                                pathMag.lineTo(px, ymag)
+                                pathIntensity.lineTo(px, yint)
                             }
                         }
 
-                        // raw
-                        drawPath(path = pathX, color = Color(0xFFEF5350), style = Stroke(width = 1f))
-                        drawPath(path = pathY, color = Color(0xFF26A69A), style = Stroke(width = 1f))
-                        drawPath(path = pathZ, color = Color(0xFF42A5F5), style = Stroke(width = 1f))
-                        // filtered (thicker)
-                        drawPath(path = pathXf, color = Color.Red, style = Stroke(width = 2.5f))
-                        drawPath(path = pathYf, color = Color.Green, style = Stroke(width = 2.5f))
-                        drawPath(path = pathZf, color = Color.Blue, style = Stroke(width = 2.5f))
+                        // draw horizontal magnitude in orange and intensity as purple
+                        drawPath(path = pathMag, color = Color(0xFFFFA726), style = Stroke(width = 2.5f))
+                        drawPath(path = pathIntensity, color = Color(0xFF8E24AA), style = Stroke(width = 2.5f))
                     }
                 }
             }

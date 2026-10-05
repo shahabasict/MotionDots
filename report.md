@@ -88,7 +88,7 @@ Notes (what is missing from documentation):
 Status: Not Started
 
 ## Phase 8 - Vehicle Motion Estimation
-Status: In Progress (implemented, needs physical testing)
+Status: In Progress (implemented, partially validated)
 
 Objective:
 - Create a simple, experimental vehicle-motion estimation layer that derives a motion-intensity proxy from filtered world-frame acceleration.
@@ -103,7 +103,17 @@ Implementation (facts):
 
 Tests performed:
 - Code build: `./gradlew assembleDebug` succeeded and produced app/build/outputs/apk/debug/app-debug.apk.
-- No physical-device motion tests were performed from this environment (device access not available). See Blockers.md for details.
+- Physical-device stationary baseline: Performed manually with a connected Android device. The estimator emitted logs (MotionDotsEst) observed via adb logcat showing filtered world X/Y remained small; horizontalMagnitude (hmag) was approximately 0.005–0.016 m/s² and motionIntensity approximately 0.002–0.005 during the stationary period. Other physical tests were not performed in this session.
+
+Physical validation:
+
+- Stationary baseline: PASS — estimator horizontal magnitude and motion intensity remained near zero while the phone was stationary.
+- Phone movement: NOT TESTED / NOT RECORDED.
+- Phone rotation (in-place): NOT TESTED / NOT RECORDED.
+- Different orientations: NOT TESTED / NOT RECORDED.
+- Real vehicle (passenger): NOT TESTED / NOT RECORDED.
+
+Overall validation status: PARTIAL — stationary baseline observed, remaining tests pending manual validation.
 
 Limitations:
 - The estimator is intentionally simple and experimental. It does not map phone axes to vehicle axes, does not perform dead-reckoning, and does not fuse gyroscope data into the translational estimate.

@@ -51,17 +51,17 @@ Resolved.
 
 ## Blocker #003 - Physical-device test access
 ### Problem
-Physical-device motion tests for Phase 8 were not executed from this environment because a connected Android device was not accessible to the running agent.
+Physical-device motion tests for Phase 8 initially were not executed from the automated environment because a connected Android device was not available to the agent.
 
 ### Investigation
-The build step (`./gradlew assembleDebug`) completed successfully and produced an APK, but installing and interactively testing on a device requires adb access and a physically connected phone controlled by the developer.
+The build step (`./gradlew assembleDebug`) completed successfully and produced an APK. Subsequently a physical Android device was connected and used to perform a stationary baseline test observed via adb logcat.
 
 ### Solution / Workaround
-Run the following locally on the developer machine with the phone connected:
+Manual device testing steps (used and recommended):
 
 1. Install the APK: `adb install -r app/build/outputs/apk/debug/app-debug.apk`
 2. Launch the app on the phone, open Diagnostics, and observe the "Vehicle motion estimate (experimental)" card.
-3. Perform the controlled tests described in working.md and record observations in working.md or report.md.
+3. For this session, TEST A (Stationary baseline) was executed and logs captured via adb logcat.
 
 ### Status
-Open — requires manual execution on a development device.
+Partially resolved — stationary baseline validation completed. Remaining tests (phone movement, in-place rotation, different orientations, real vehicle) are still pending manual validation.

@@ -99,3 +99,8 @@ Limitations and notes:
 Build result:
 
 - Will run `./gradlew assembleDebug` after implementation to verify the APK.
+
+Physical validation (observed):
+
+- TEST A (Stationary baseline): The phone was kept stationary and MotionDots was opened to the Diagnostics -> "Vehicle motion estimate (experimental)" card. The app emitted estimator logs (MotionDotsEst) observed via adb logcat. Filtered world acceleration X/Y remained small. Horizontal magnitude (hmag) values observed in the logs were approximately 0.005–0.016 m/s^2 and motionIntensity values approximately 0.002–0.005. This indicates the stationary horizontal vehicle-motion estimate remained near zero (successful baseline check).
+- Other tests (phone movement, phone rotation, different orientations, real vehicle) were NOT TESTED / NOT RECORDED in this session and remain pending for manual validation.

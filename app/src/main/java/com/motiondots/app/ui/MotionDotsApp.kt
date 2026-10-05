@@ -12,6 +12,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.flow.collectLatest
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -145,13 +147,48 @@ fun DiagnosticsScreen() {
         Text("Diagnostics", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(12.dp))
 
+        val context = LocalContext.current
+        val sensor = remember { com.motiondots.app.sensor.AccelerometerSensor(context) }
+
         DiagnosticCard(title = "Accelerometer") {
-            SimpleLineGraph(sample = listOf(0f, 0.5f, -0.4f, 0.8f, 0.3f, -0.2f, 0.6f))
+            if (!sensor.hasSensor()) {
+                Text("Accelerometer not available on this device.", color = Color.Gray)
+            } else {
+                DisposableEffect(sensor) {
+                    sensor.start()
+                    onDispose {
+                        sensor.stop()
+                    }
+                }
+                // maintain a small buffer of recent samples for X/Y/Z
+                val samples = remember { mutableStateListOf<FloatArray>() }
+                val latest by sensor.reading.collectAsState(initial = null)
+
+                // update samples when latest changes
+                LaunchedEffect(latest) {
+                    latest?.let {
+                        samples.add(floatArrayOf(it.x, it.y, it.z))
+                        if (samples.size > 80) samples.removeAt(0)
+                    }
+                }
+
+                // numeric readout
+                latest?.let {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("X: ${String.format("%.2f", it.x)}")
+                        Text("Y: ${String.format("%.2f", it.y)}")
+                        Text("Z: ${String.format("%.2f", it.z)}")
+                    }
+                } ?: Text("Waiting for data...", color = Color.Gray)
+
+                Spacer(modifier = Modifier.height(8.dp))
+                AccelerometerGraph(samples = samples)
+            }
         }
 
-        DiagnosticCard(title = "Gyroscope") {
-            SimpleLineGraph(sample = listOf(0f, -0.3f, 0.4f, -0.1f, 0.5f, -0.6f, 0.2f))
-        }
+    DiagnosticCard(title = "Gyroscope") {
+        SimpleLineGraph(sample = listOf(0f, -0.3f, 0.4f, -0.1f, 0.5f, -0.6f, 0.2f))
+    }
 
         DiagnosticCard(title = "Processed motion") {
             SimpleLineGraph(sample = listOf(0f, 0.2f, 0.1f, 0.3f, 0.0f, -0.1f, 0.05f))
@@ -171,6 +208,56 @@ fun DiagnosticCard(title: String, content: @Composable () -> Unit) {
         }
     }
 }
+
+@Composable
+fun AccelerometerGraph(samples: List<FloatArray>) {
+    // samples: list of [x,y,z]
+    Canvas(modifier = Modifier
+        .height(120.dp)
+        .fillMaxWidth()) {
+        val w = size.width
+        val h = size.height
+        val n = samples.size
+        if (n < 2) return@Canvas
+
+        val step = w / (n - 1).coerceAtLeast(1)
+        // find max absolute among samples for scaling
+        var maxAbs = 0f
+        samples.forEach { arr ->
+            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr[0]))
+            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr[1]))
+            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr[2]))
+        }
+        if (maxAbs == 0f) maxAbs = 1f
+
+        val pathX = Path()
+        val pathY = Path()
+        val pathZ = Path()
+
+        samples.forEachIndexed { i, arr ->
+            val x = i * step
+            val vx = (arr[0] / maxAbs) * (h / 2f)
+            val vy = (arr[1] / maxAbs) * (h / 2f)
+            val vz = (arr[2] / maxAbs) * (h / 2f)
+
+            val px = x.toFloat()
+            val yx = h / 2f - vx
+            val yy = h / 2f - vy
+            val yz = h / 2f - vz
+
+            if (i == 0) {
+                pathX.moveTo(px, yx); pathY.moveTo(px, yy); pathZ.moveTo(px, yz)
+            } else {
+                pathX.lineTo(px, yx); pathY.lineTo(px, yy); pathZ.lineTo(px, yz)
+            }
+        }
+
+        drawPath(path = pathX, color = Color.Red, style = Stroke(width = 2f))
+        drawPath(path = pathY, color = Color.Green, style = Stroke(width = 2f))
+        drawPath(path = pathZ, color = Color.Blue, style = Stroke(width = 2f))
+    }
+}
+
 
 @Composable
 fun SimpleLineGraph(sample: List<Float>) {

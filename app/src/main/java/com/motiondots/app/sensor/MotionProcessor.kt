@@ -8,8 +8,99 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.math.abs
+import kotlin.math.PI
 
-data class WorldAcceleration(val x: Float, val y: Float, val z: Float, val timestamp: Long)
+
+/** One Euro filter implementation for scalar signals. */
+class OneEuroFilter(
+    private var minCutoff: Double = 0.4, // Hz
+    private var beta: Double = 0.007, // speed coefficient
+    private var dCutoff: Double = 1.0 // derivative cutoff Hz
+) {
+    private var xPrev: Double? = null
+    private var dxPrev: Double? = null
+    private var tPrev: Double? = null
+
+    private fun alpha(cutoff: Double, dt: Double): Double {
+        val tau = 1.0 / (2 * PI * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+    }
+
+    fun reset() {
+        xPrev = null
+        dxPrev = null
+        tPrev = null
+    }
+
+    /**
+     * Filter a new sample x at time t (seconds). Returns filtered value.
+     */
+    fun filter(x: Double, t: Double): Double {
+        val t0 = tPrev
+        if (t0 == null || t <= t0) {
+            // first sample or non-increasing time: initialize
+            xPrev = x
+            dxPrev = 0.0
+            tPrev = t
+            return x
+        }
+
+        val dt = t - t0
+        if (dt <= 0.0) {
+            return xPrev ?: x
+        }
+
+        // derivative
+        val dx = (x - (xPrev ?: x)) / dt
+
+        // smooth derivative
+        val alphaD = alpha(dCutoff, dt)
+        val dxHat = (dxPrev ?: dx) + alphaD * (dx - (dxPrev ?: dx))
+
+        // adaptive cutoff
+        val cutoff = minCutoff + beta * abs(dxHat)
+
+        val a = alpha(cutoff, dt)
+        val xHat = (xPrev ?: x) + a * (x - (xPrev ?: x))
+
+        // update state
+        xPrev = xHat
+        dxPrev = dxHat
+        tPrev = t
+
+        return xHat
+    }
+}
+
+/** Simple vector wrapper for three OneEuroFilters */
+class OneEuroVectorFilter(minCutoff: Double = 0.4, beta: Double = 0.007, dCutoff: Double = 1.0) {
+    private val fx = OneEuroFilter(minCutoff, beta, dCutoff)
+    private val fy = OneEuroFilter(minCutoff, beta, dCutoff)
+    private val fz = OneEuroFilter(minCutoff, beta, dCutoff)
+
+    fun reset() { fx.reset(); fy.reset(); fz.reset() }
+
+    fun filter(x: Double, y: Double, z: Double, t: Double): Triple<Double, Double, Double> {
+        val rx = fx.filter(x, t)
+        val ry = fy.filter(y, t)
+        val rz = fz.filter(z, t)
+        return Triple(rx, ry, rz)
+    }
+}
+
+/**
+ * WorldAcceleration contains raw gravity-compensated world-frame acceleration plus optional filtered values.
+ */
+data class WorldAcceleration(
+    val x: Float,
+    val y: Float,
+    val z: Float,
+    val timestamp: Long,
+    val filteredX: Float? = null,
+    val filteredY: Float? = null,
+    val filteredZ: Float? = null
+)
 
 /**
  * MotionProcessor computes gravity-compensated acceleration in a world frame given
@@ -33,6 +124,14 @@ class MotionProcessor(
     private var _latest: WorldAcceleration? = null
     val latest: WorldAcceleration?
         get() = _latest
+
+    // filtered latest
+    private var _latestFiltered: WorldAcceleration? = null
+    val latestFiltered: WorldAcceleration?
+        get() = _latestFiltered
+
+    // vector filter for world-frame components
+    private val vectorFilter = OneEuroVectorFilter(0.4, 0.007, 1.0)
 
     fun start() {
         if (job != null) return
@@ -75,7 +174,12 @@ class MotionProcessor(
             val lin_y = wy
             val lin_z = wz - G
 
-            _latest = WorldAcceleration(lin_x.toFloat(), lin_y.toFloat(), lin_z.toFloat(), accel.timestamp)
+            // compute filtered values using One Euro filter; timestamps are in seconds
+            val tSec = accel.timestamp.toDouble() / 1000.0
+            val (fxv, fyv, fzv) = vectorFilter.filter(lin_x, lin_y, lin_z, tSec)
+
+            _latest = WorldAcceleration(lin_x.toFloat(), lin_y.toFloat(), lin_z.toFloat(), accel.timestamp, fxv.toFloat(), fyv.toFloat(), fzv.toFloat())
+            _latestFiltered = _latest
         }
     }
 

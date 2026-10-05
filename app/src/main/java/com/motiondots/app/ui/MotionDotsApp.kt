@@ -262,13 +262,16 @@ fun DiagnosticsScreen() {
             }
 
             val processedSamples = remember { mutableStateListOf<com.motiondots.app.sensor.WorldAcceleration>() }
-            // poll processor.latest periodically via LaunchedEffect
-            val latestProcessed = remember { derivedStateOf { motionProcessor.latest } }
-
-            LaunchedEffect(latestProcessed.value) {
-                latestProcessed.value?.let {
-                    processedSamples.add(it)
-                    if (processedSamples.size > 80) processedSamples.removeAt(0)
+            // poll processor.latest periodically via LaunchedEffect on recompute
+            LaunchedEffect(Unit) {
+                while (true) {
+                    val latest = motionProcessor.latest
+                    latest?.let {
+                        processedSamples.add(it)
+                        if (processedSamples.size > 80) processedSamples.removeAt(0)
+                    }
+                    // small delay to avoid busy loop; rely on sensor update cadence
+                    kotlinx.coroutines.delay(40)
                 }
             }
 
@@ -277,9 +280,16 @@ fun DiagnosticsScreen() {
             } else {
                 val last = processedSamples.last()
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("World X: ${String.format("%.3f", last.x)} m/s²")
-                    Text("World Y: ${String.format("%.3f", last.y)} m/s²")
-                    Text("World Z: ${String.format("%.3f", last.z)} m/s²")
+                    Column {
+                        Text("Raw World X: ${String.format("%.3f", last.x)} m/s²")
+                        Text("Raw World Y: ${String.format("%.3f", last.y)} m/s²")
+                        Text("Raw World Z: ${String.format("%.3f", last.z)} m/s²")
+                    }
+                    Column {
+                        Text("Filtered X: ${String.format("%.3f", last.filteredX ?: Float.NaN)} m/s²")
+                        Text("Filtered Y: ${String.format("%.3f", last.filteredY ?: Float.NaN)} m/s²")
+                        Text("Filtered Z: ${String.format("%.3f", last.filteredZ ?: Float.NaN)} m/s²")
+                    }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 // draw simple graph using existing Canvas approach
@@ -303,27 +313,46 @@ fun DiagnosticsScreen() {
                         val pathY = Path()
                         val pathZ = Path()
 
+                        val pathXf = Path()
+                        val pathYf = Path()
+                        val pathZf = Path()
+
                         processedSamples.forEachIndexed { i, arr ->
                             val x = i * step
                             val vx = (arr.x / maxAbs) * (h / 2f)
                             val vy = (arr.y / maxAbs) * (h / 2f)
                             val vz = (arr.z / maxAbs) * (h / 2f)
 
+                            val vxf = ((arr.filteredX ?: arr.x) / maxAbs) * (h / 2f)
+                            val vyf = ((arr.filteredY ?: arr.y) / maxAbs) * (h / 2f)
+                            val vzf = ((arr.filteredZ ?: arr.z) / maxAbs) * (h / 2f)
+
                             val px = x.toFloat()
                             val yx = h / 2f - vx
                             val yy = h / 2f - vy
                             val yz = h / 2f - vz
 
+                            val yxf = h / 2f - vxf
+                            val yyf = h / 2f - vyf
+                            val yzf = h / 2f - vzf
+
                             if (i == 0) {
                                 pathX.moveTo(px, yx); pathY.moveTo(px, yy); pathZ.moveTo(px, yz)
+                                pathXf.moveTo(px, yxf); pathYf.moveTo(px, yyf); pathZf.moveTo(px, yzf)
                             } else {
                                 pathX.lineTo(px, yx); pathY.lineTo(px, yy); pathZ.lineTo(px, yz)
+                                pathXf.lineTo(px, yxf); pathYf.lineTo(px, yyf); pathZf.lineTo(px, yzf)
                             }
                         }
 
-                        drawPath(path = pathX, color = Color.Red, style = Stroke(width = 2f))
-                        drawPath(path = pathY, color = Color.Green, style = Stroke(width = 2f))
-                        drawPath(path = pathZ, color = Color.Blue, style = Stroke(width = 2f))
+                        // raw
+                        drawPath(path = pathX, color = Color(0xFFEF5350), style = Stroke(width = 1f))
+                        drawPath(path = pathY, color = Color(0xFF26A69A), style = Stroke(width = 1f))
+                        drawPath(path = pathZ, color = Color(0xFF42A5F5), style = Stroke(width = 1f))
+                        // filtered (thicker)
+                        drawPath(path = pathXf, color = Color.Red, style = Stroke(width = 2.5f))
+                        drawPath(path = pathYf, color = Color.Green, style = Stroke(width = 2.5f))
+                        drawPath(path = pathZf, color = Color.Blue, style = Stroke(width = 2.5f))
                     }
                 }
             }

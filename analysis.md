@@ -22,3 +22,23 @@ The gyroscope sensor measures angular velocity around the device's three axes (X
 Why raw gyroscope is not yet sufficient
 - Raw gyroscope measures rotation rate in device coordinates and must be integrated or fused with accelerometer/orientation data to derive meaningful orientation or rotational motion. Integration without drift compensation will accumulate error.
 - Later phases will perform sensor fusion and filtering before using gyroscope data for MotionDots decisions.
+
+Orientation / Rotation Vector (Phase 5)
+
+Why device orientation matters
+- To interpret accelerometer measurements in a world-fixed frame (or vehicle frame), we must know device orientation. Without orientation, accelerometer axes rotate with the device and include gravity; transforming measurements requires a stable orientation estimate.
+
+What the rotation-vector sensor provides
+- The rotation-vector sensor is a sensor fusion product provided by Android (typically combining accelerometer, gyroscope and magnetometer where available) that represents the device's orientation as a rotation from the device coordinate frame to the world frame. Android exposes this as a rotation vector which can be converted to a rotation matrix or quaternion using the SensorManager API.
+
+Quaternion representation
+- Quaternions provide a compact, non-singular representation of orientation suitable for composing rotations and transforming vectors. We expose quaternion values as (w, x, y, z) for debugging and future use.
+
+Roll / Pitch / Yaw
+- For human-readable diagnostics, we also derive roll, pitch, and yaw (in radians/degrees) using SensorManager.getRotationMatrixFromVector and SensorManager.getOrientation.
+
+Why orientation is needed before transforming accelerometer measurements
+- Raw accelerometer readings are provided in device coordinates and include gravity. To compute linear acceleration in a consistent world frame, we must (a) estimate device orientation, (b) remove gravity in the world or device frame, and (c) rotate the vector into the desired coordinate frame. Orientation estimation is therefore a prerequisite for meaningful motion analysis.
+
+Separation of concerns
+- In this phase we only collect and display orientation (rotation-vector -> quaternion -> roll/pitch/yaw). No additional fusion, filtering, or motion algorithms are implemented yet.

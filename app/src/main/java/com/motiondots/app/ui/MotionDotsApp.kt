@@ -220,6 +220,35 @@ fun DiagnosticsScreen() {
                 GyroscopeGraph(samples = gyroSamples)
             }
         }
+        
+        // Orientation (rotation-vector)
+        val orientationContext = LocalContext.current
+        val orientationSensor = remember { com.motiondots.app.sensor.OrientationSensor(orientationContext) }
+        DiagnosticCard(title = "Orientation") {
+            if (!orientationSensor.hasSensor()) {
+                Text("Rotation-vector sensor not available on this device.", color = Color.Gray)
+            } else {
+                DisposableEffect(orientationSensor) {
+                    orientationSensor.start()
+                    onDispose { orientationSensor.stop() }
+                }
+
+                val latestOrient by orientationSensor.reading.collectAsState(initial = null)
+                latestOrient?.let { o ->
+                    // show roll/pitch/yaw in degrees and quaternion components
+                    Column {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Roll: ${String.format("%.1f", Math.toDegrees(o.roll.toDouble()))}°")
+                            Text("Pitch: ${String.format("%.1f", Math.toDegrees(o.pitch.toDouble()))}°")
+                            Text("Yaw: ${String.format("%.1f", Math.toDegrees(o.yaw.toDouble()))}°")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Quaternion:")
+                        Text("w: ${String.format("%.3f", o.qw)} x: ${String.format("%.3f", o.qx)} y: ${String.format("%.3f", o.qy)} z: ${String.format("%.3f", o.qz)}", fontSize = 12.sp, color = Color.Gray)
+                    }
+                } ?: Text("Waiting for orientation data...", color = Color.Gray)
+            }
+        }
 
         DiagnosticCard(title = "Processed motion") {
             SimpleLineGraph(sample = listOf(0f, 0.2f, 0.1f, 0.3f, 0.0f, -0.1f, 0.05f))

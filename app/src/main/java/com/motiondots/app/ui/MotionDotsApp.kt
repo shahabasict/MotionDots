@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.collectLatest
+import com.motiondots.app.sensor.MotionProcessor
+import com.motiondots.app.sensor.WorldAcceleration
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -250,8 +252,81 @@ fun DiagnosticsScreen() {
             }
         }
 
+        // Processed motion: gravity-compensated world-frame acceleration
+        val motionProcessor = remember { MotionProcessor(sensor.reading, orientationSensor.reading) }
         DiagnosticCard(title = "Processed motion") {
-            SimpleLineGraph(sample = listOf(0f, 0.2f, 0.1f, 0.3f, 0.0f, -0.1f, 0.05f))
+            // start/stop processor with lifecycle
+            DisposableEffect(motionProcessor) {
+                motionProcessor.start()
+                onDispose { motionProcessor.stop() }
+            }
+
+            val processedSamples = remember { mutableStateListOf<com.motiondots.app.sensor.WorldAcceleration>() }
+            // poll processor.latest periodically via LaunchedEffect
+            val latestProcessed = remember { derivedStateOf { motionProcessor.latest } }
+
+            LaunchedEffect(latestProcessed.value) {
+                latestProcessed.value?.let {
+                    processedSamples.add(it)
+                    if (processedSamples.size > 80) processedSamples.removeAt(0)
+                }
+            }
+
+            if (processedSamples.isEmpty()) {
+                Text("Waiting for processed motion data...", color = Color.Gray)
+            } else {
+                val last = processedSamples.last()
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("World X: ${String.format("%.3f", last.x)} m/s²")
+                    Text("World Y: ${String.format("%.3f", last.y)} m/s²")
+                    Text("World Z: ${String.format("%.3f", last.z)} m/s²")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                // draw simple graph using existing Canvas approach
+                Canvas(modifier = Modifier
+                    .height(120.dp)
+                    .fillMaxWidth()) {
+                    val w = size.width
+                    val h = size.height
+                    val n = processedSamples.size
+                    if (n >= 2) {
+                        val step = w / (n - 1).coerceAtLeast(1)
+                        var maxAbs = 0f
+                        processedSamples.forEach { arr ->
+                            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr.x))
+                            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr.y))
+                            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr.z))
+                        }
+                        if (maxAbs == 0f) maxAbs = 1f
+
+                        val pathX = Path()
+                        val pathY = Path()
+                        val pathZ = Path()
+
+                        processedSamples.forEachIndexed { i, arr ->
+                            val x = i * step
+                            val vx = (arr.x / maxAbs) * (h / 2f)
+                            val vy = (arr.y / maxAbs) * (h / 2f)
+                            val vz = (arr.z / maxAbs) * (h / 2f)
+
+                            val px = x.toFloat()
+                            val yx = h / 2f - vx
+                            val yy = h / 2f - vy
+                            val yz = h / 2f - vz
+
+                            if (i == 0) {
+                                pathX.moveTo(px, yx); pathY.moveTo(px, yy); pathZ.moveTo(px, yz)
+                            } else {
+                                pathX.lineTo(px, yx); pathY.lineTo(px, yy); pathZ.lineTo(px, yz)
+                            }
+                        }
+
+                        drawPath(path = pathX, color = Color.Red, style = Stroke(width = 2f))
+                        drawPath(path = pathY, color = Color.Green, style = Stroke(width = 2f))
+                        drawPath(path = pathZ, color = Color.Blue, style = Stroke(width = 2f))
+                    }
+                }
+            }
         }
     }
 }

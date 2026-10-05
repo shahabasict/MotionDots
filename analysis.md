@@ -42,3 +42,50 @@ Why orientation is needed before transforming accelerometer measurements
 
 Separation of concerns
 - In this phase we only collect and display orientation (rotation-vector -> quaternion -> roll/pitch/yaw). No additional fusion, filtering, or motion algorithms are implemented yet.
+
+Gravity Compensation & World-Frame Acceleration (Phase 6)
+
+1) Why raw accelerometer values cannot directly drive MotionDots
+- Raw accelerometer readings are provided in device coordinates and include the gravity vector. If the device is tilted, the gravity contribution projects onto all device axes. Using raw axes would conflate device orientation with linear motion and produce incorrect cues.
+
+2) Coordinate system conventions used here
+- World frame (chosen explicit convention):
+  - X: horizontal axis (right-east in a local tangent plane)
+  - Y: horizontal axis (forward-north in a local tangent plane)
+  - Z: vertical axis, positive UP (opposite the gravity acceleration vector)
+
+3) Quaternion / rotation transformation
+- OrientationSensor provides a quaternion q = (w, x, y, z) that represents the rotation from device frame to world frame.
+- To map a vector v_device (a_x, a_y, a_z) reported by the accelerometer into world coordinates we compute:
+
+    v_world = q * v_device * q_conj
+
+  where we treat v_device as a pure quaternion (0, a_x, a_y, a_z), and q_conj = (w, -x, -y, -z).
+
+4) Gravity representation in world frame
+- Under the chosen convention gravity is represented as g_world = (0, 0, +9.80665) m/s^2 (positive up). The accelerometer reports the proper acceleration including reaction forces; when stationary the device measures approximately +g_world in device coordinates transformed to world coordinates.
+
+5) Gravity-compensation calculation
+- Steps implemented in MotionProcessor:
+  a) Read raw accelerometer vector a_dev = (a_x, a_y, a_z) in device coordinates.
+  b) Read orientation quaternion q = (w, x, y, z) mapping device->world.
+  c) Compute a_world = rotate(q, a_dev) = q * a_dev * q_conj.
+  d) Compute linear acceleration (gravity-compensated):
+
+       a_linear = a_world - g_world
+
+     where g_world = (0, 0, +9.80665).
+
+6) Resulting world-frame acceleration
+- The output is a_linear = (a_x_world - 0, a_y_world - 0, a_z_world - g)
+- This vector approximates the actual linear acceleration of the device in the world reference frame (subject to sensor noise and biases). No filtering or bias correction is applied at this stage.
+
+Variables and definitions:
+- a_dev = (a_x, a_y, a_z): raw accelerometer reading in device frame (m/s^2)
+- q = (w, x, y, z): quaternion representing rotation from device frame to world frame
+- q_conj = (w, -x, -y, -z)
+- a_world = q * a_dev * q_conj
+- g_world = (0, 0, +9.80665) m/s^2 (gravity vector expressed in world frame, positive up)
+- a_linear = a_world - g_world (gravity-compensated acceleration)
+
+These equations are implemented verbatim in MotionProcessor.kt and are intentionally left unfiltered so future phases can apply filtering and bias compensation as needed.

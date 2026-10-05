@@ -49,3 +49,18 @@ Build & test verification:
 
 - Built APK with `./gradlew assembleDebug`.
 - Installed APK on a connected Android phone via `adb install -r` and verified that the Diagnostics screen shows live gyroscope data and numerical X/Y/Z values while the device is rotated.
+
+## Phase 6 - Gravity Compensation and World-Frame Acceleration
+
+What was created:
+
+- MotionProcessor component (app/src/main/java/com/motiondots/app/sensor/MotionProcessor.kt) that consumes AccelerometerReading and OrientationReading StateFlows and produces gravity-compensated world-frame acceleration output (WorldAcceleration).
+- Diagnostics updated: "Processed motion" graph now displays world-frame gravity-compensated acceleration (World X/Y/Z) with numeric readouts.
+
+Coordinate convention:
+- World Z is vertical and positive UP. World X/Y are horizontal.
+
+Build & test verification:
+
+- Built APK with `./gradlew assembleDebug` and installed on a connected phone.
+- Tested stationary and moving orientations: gravity-compensated horizontal acceleration is near zero when device is stationary across different orientations; Z value reflects gravity-subtracted vertical component.

@@ -186,9 +186,40 @@ fun DiagnosticsScreen() {
             }
         }
 
-    DiagnosticCard(title = "Gyroscope") {
-        SimpleLineGraph(sample = listOf(0f, -0.3f, 0.4f, -0.1f, 0.5f, -0.6f, 0.2f))
-    }
+        // Gyroscope - live
+        val gyroContext = LocalContext.current
+        val gyroSensor = remember { com.motiondots.app.sensor.GyroscopeSensor(gyroContext) }
+        DiagnosticCard(title = "Gyroscope") {
+            if (!gyroSensor.hasSensor()) {
+                Text("Gyroscope not available on this device.", color = Color.Gray)
+            } else {
+                DisposableEffect(gyroSensor) {
+                    gyroSensor.start()
+                    onDispose { gyroSensor.stop() }
+                }
+
+                val gyroSamples = remember { mutableStateListOf<FloatArray>() }
+                val latestGyro by gyroSensor.reading.collectAsState(initial = null)
+
+                LaunchedEffect(latestGyro) {
+                    latestGyro?.let {
+                        gyroSamples.add(floatArrayOf(it.x, it.y, it.z))
+                        if (gyroSamples.size > 80) gyroSamples.removeAt(0)
+                    }
+                }
+
+                latestGyro?.let {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("X: ${String.format("%.3f", it.x)}")
+                        Text("Y: ${String.format("%.3f", it.y)}")
+                        Text("Z: ${String.format("%.3f", it.z)}")
+                    }
+                } ?: Text("Waiting for gyroscope data...", color = Color.Gray)
+
+                Spacer(modifier = Modifier.height(8.dp))
+                GyroscopeGraph(samples = gyroSamples)
+            }
+        }
 
         DiagnosticCard(title = "Processed motion") {
             SimpleLineGraph(sample = listOf(0f, 0.2f, 0.1f, 0.3f, 0.0f, -0.1f, 0.05f))
@@ -257,6 +288,54 @@ fun AccelerometerGraph(samples: List<FloatArray>) {
         drawPath(path = pathZ, color = Color.Blue, style = Stroke(width = 2f))
     }
 }
+
+@Composable
+fun GyroscopeGraph(samples: List<FloatArray>) {
+    Canvas(modifier = Modifier
+        .height(120.dp)
+        .fillMaxWidth()) {
+        val w = size.width
+        val h = size.height
+        val n = samples.size
+        if (n < 2) return@Canvas
+
+        val step = w / (n - 1).coerceAtLeast(1)
+        var maxAbs = 0f
+        samples.forEach { arr ->
+            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr[0]))
+            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr[1]))
+            maxAbs = kotlin.math.max(maxAbs, kotlin.math.abs(arr[2]))
+        }
+        if (maxAbs == 0f) maxAbs = 1f
+
+        val pathX = Path()
+        val pathY = Path()
+        val pathZ = Path()
+
+        samples.forEachIndexed { i, arr ->
+            val x = i * step
+            val vx = (arr[0] / maxAbs) * (h / 2f)
+            val vy = (arr[1] / maxAbs) * (h / 2f)
+            val vz = (arr[2] / maxAbs) * (h / 2f)
+
+            val px = x.toFloat()
+            val yx = h / 2f - vx
+            val yy = h / 2f - vy
+            val yz = h / 2f - vz
+
+            if (i == 0) {
+                pathX.moveTo(px, yx); pathY.moveTo(px, yy); pathZ.moveTo(px, yz)
+            } else {
+                pathX.lineTo(px, yx); pathY.lineTo(px, yy); pathZ.lineTo(px, yz)
+            }
+        }
+
+        drawPath(path = pathX, color = Color.Magenta, style = Stroke(width = 2f))
+        drawPath(path = pathY, color = Color.Cyan, style = Stroke(width = 2f))
+        drawPath(path = pathZ, color = Color.Yellow, style = Stroke(width = 2f))
+    }
+}
+
 
 
 @Composable

@@ -13,3 +13,12 @@ The Android accelerometer measures proper acceleration applied to the device alo
 Why raw accelerometer is not yet sufficient
 - The raw accelerometer contains gravity and device orientation effects — it does not directly represent linear motion in a world-fixed frame.
 - Later phases will apply filtering, gravity compensation, and coordinate transforms before using accelerometer data to drive MotionDots.
+
+Gyroscope (Phase 4)
+The gyroscope sensor measures angular velocity around the device's three axes (X, Y, Z). Values are typically reported in radians per second (rad/s).
+
+- X, Y, Z: angular velocity about each device axis reported by Sensor.TYPE_GYROSCOPE.
+
+Why raw gyroscope is not yet sufficient
+- Raw gyroscope measures rotation rate in device coordinates and must be integrated or fused with accelerometer/orientation data to derive meaningful orientation or rotational motion. Integration without drift compensation will accumulate error.
+- Later phases will perform sensor fusion and filtering before using gyroscope data for MotionDots decisions.

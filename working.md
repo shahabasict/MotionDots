@@ -36,3 +36,16 @@ Build & test verification:
 
 - Built APK with `./gradlew assembleDebug`.
 - Installed APK on a connected Android phone via `adb install -r` and verified that the Diagnostics screen shows live accelerometer data and numerical X/Y/Z values while the device is moved.
+
+## Phase 4 - Gyroscope Integration
+
+What was created:
+
+- GyroscopeSensor component (app/src/main/java/com/motiondots/app/sensor/GyroscopeSensor.kt) that exposes raw X/Y/Z angular velocity readings over a StateFlow. It handles registration/unregistration with SensorManager and detects missing hardware.
+- Diagnostics screen updated to start/stop gyroscope listening while visible and to render a live gyroscope graph (X/Y/Z) using a small in-memory buffer for recent samples.
+- Numeric readout of current gyroscope X/Y/Z values placed above the gyroscope graph to help physical-device testing.
+
+Build & test verification:
+
+- Built APK with `./gradlew assembleDebug`.
+- Installed APK on a connected Android phone via `adb install -r` and verified that the Diagnostics screen shows live gyroscope data and numerical X/Y/Z values while the device is rotated.

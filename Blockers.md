@@ -27,4 +27,24 @@ sdk.dir=/path/to/Android/Sdk
 Replace `/path/to/Android/Sdk` with the real SDK path on your machine.
 
 ### Status
-Blocked — awaiting SDK installation or SDK path configuration on the machine running the build.
+Blocked — resolved. Installed Android command-line tools via Homebrew and used sdkmanager to install platform-tools, platforms;android-33, and build-tools;33.0.2. Added `local.properties` pointing to the SDK.
+
+## Blocker #002 - AndroidX property not set
+### Problem
+Build failed with:
+
+```
+Configuration `:app:debugRuntimeClasspath` contains AndroidX dependencies, but the `android.useAndroidX` property is not enabled
+```
+
+### Investigation
+Gradle detected AndroidX libraries in dependencies (Compose, activity-compose) but `gradle.properties` did not enable AndroidX.
+
+### Root Cause
+Missing `android.useAndroidX=true` in `gradle.properties`.
+
+### Solution
+Added `gradle.properties` with `android.useAndroidX=true` and `android.enableJetifier=true`.
+
+### Status
+Resolved.

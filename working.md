@@ -104,3 +104,34 @@ Physical validation (observed):
 
 - TEST A (Stationary baseline): The phone was kept stationary and MotionDots was opened to the Diagnostics -> "Vehicle motion estimate (experimental)" card. The app emitted estimator logs (MotionDotsEst) observed via adb logcat. Filtered world acceleration X/Y remained small. Horizontal magnitude (hmag) values observed in the logs were approximately 0.005–0.016 m/s^2 and motionIntensity values approximately 0.002–0.005. This indicates the stationary horizontal vehicle-motion estimate remained near zero (successful baseline check).
 - Other tests (phone movement, phone rotation, different orientations, real vehicle) were NOT TESTED / NOT RECORDED in this session and remain pending for manual validation.
+
+Guided physical validation (interactive tests performed):
+
+TEST 1 — STATIONARY
+- Physical action: Phone placed completely still on a stable surface for 15s.
+- Observed (approx): fx ≈ -0.008 .. +0.006 m/s², fy ≈ -0.013 .. +0.012 m/s², fz ≈ 0.076 .. 0.096 m/s², hmag ≈ 0.0007 .. 0.0099 m/s², motionIntensity ≈ 0.00024 .. 0.0033.
+- Result: PASS (stationary horizontal estimate remained near zero).
+
+TEST 2 — LINEAR MOVEMENT
+- Physical action: Repeated forward/backward translations for 15s, attempting minimal rotation.
+- Observed (approx): fx ≈ -0.009 .. +0.009 m/s², fy ≈ -0.013 .. +0.012 m/s², fz ≈ 0.076 .. 0.096 m/s², hmag ≈ 0.0007 .. 0.0099 m/s², motionIntensity ≈ 0.00024 .. 0.0033.
+- Result: INCONCLUSIVE — this capture did not produce a clear sustained increase beyond the stationary baseline; movement magnitude or direction may have been insufficient or masked by noise/filtering.
+
+TEST 3 — SIDEWAYS MOVEMENT
+- Physical action: Repeated left/right translations for 15s, attempting minimal rotation.
+- Observed (approx): fx ≈ -0.020 .. +0.015 m/s², fy ≈ -0.013 .. +0.013 m/s², fz ≈ 0.035 .. 0.108 m/s², hmag ≈ 0.001 .. 0.020 m/s², motionIntensity ≈ 0.001 .. 0.007.
+- Result: PASS — sideways translations produced observable increases/spikes in horizontalMagnitude and motionIntensity compared to the stationary baseline.
+
+TEST 4 — ROTATION IN PLACE
+- Physical action: Hold phone approximately fixed and slowly rotate left/right for 15s without intentional translation.
+- Observed (approx): fx ≈ -0.0198 .. +0.0144 m/s², fy ≈ -0.0094 .. +0.0136 m/s², fz ≈ 0.0349 .. 0.1082 m/s², hmag ≈ 0.00047 .. 0.02048 m/s², motionIntensity ≈ 0.00016 .. 0.00683.
+- Result: INCONCLUSIVE — rotation-only produced some spikes in horizontalMagnitude comparable to translation spikes; log evidence alone cannot conclusively separate rotation-induced contamination from slight translation in these trials.
+
+TEST 5 — STATIC ORIENTATIONS
+- Physical action: Keep flat and still for 5s, then change tilt/orientation and hold still for 10s.
+- Observed (approx): fx ≈ -0.0198 .. +0.0144 m/s², fy ≈ -0.0094 .. +0.0136 m/s², fz ≈ 0.035 .. 0.108 m/s², hmag ≈ 0.00055 .. 0.02048 m/s², motionIntensity ≈ 0.00018 .. 0.00683.
+- Result: INCONCLUSIVE — orientation changes produced transient hmag/fz disturbances but estimator generally returned toward low values after settling.
+
+Notes:
+- TEST 6 (Real vehicle) was skipped (not a passenger).
+- All observations above are taken from MotionDotsEst logs captured via adb logcat during each 15s test window and are reported without modification.

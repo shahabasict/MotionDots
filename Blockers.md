@@ -64,4 +64,4 @@ Manual device testing steps (used and recommended):
 3. For this session, TEST A (Stationary baseline) was executed and logs captured via adb logcat.
 
 ### Status
-Partially resolved — stationary baseline validation completed. Remaining tests (phone movement, in-place rotation, different orientations, real vehicle) are still pending manual validation.
+Status: Resolved for interactive testing — guided physical validation tests (1–5) were executed using a connected Android device; stationary baseline and sideways movement produced clear results. TEST 6 (real vehicle) was skipped because the user was not a passenger. No remaining blockers for running local interactive tests.

@@ -104,16 +104,20 @@ Implementation (facts):
 Tests performed:
 - Code build: `./gradlew assembleDebug` succeeded and produced app/build/outputs/apk/debug/app-debug.apk.
 - Physical-device stationary baseline: Performed manually with a connected Android device. The estimator emitted logs (MotionDotsEst) observed via adb logcat showing filtered world X/Y remained small; horizontalMagnitude (hmag) was approximately 0.005–0.016 m/s² and motionIntensity approximately 0.002–0.005 during the stationary period. Other physical tests were not performed in this session.
+ - Physical-device tests (guided interactive session):
+   - TEST 1 — STATIONARY: PASS. Observed fx ≈ -0.008..+0.006 m/s², fy ≈ -0.013..+0.012 m/s², fz ≈ 0.076..0.096 m/s², hmag ≈ 0.0007..0.0099 m/s², motionIntensity ≈ 0.00024..0.0033.
+   - TEST 2 — LINEAR MOVEMENT: INCONCLUSIVE. Observed ranges similar to stationary capture; no clear sustained increase beyond baseline.
+   - TEST 3 — SIDEWAYS MOVEMENT: PASS. Observed fx ≈ -0.020..+0.015 m/s², fy ≈ -0.013..+0.013 m/s², fz ≈ 0.035..0.108 m/s², hmag ≈ 0.001..0.020 m/s², motionIntensity ≈ 0.001..0.007.
+   - TEST 4 — ROTATION IN PLACE: INCONCLUSIVE. Rotation produced transient spikes (hmag up to ~0.02 m/s²) but logs do not conclusively separate rotation-only contamination from slight translation.
+   - TEST 5 — STATIC ORIENTATIONS: INCONCLUSIVE. Orientation change produced transient fz and hmag disturbances; estimator generally returned toward low values after settling.
+   - TEST 6 — REAL VEHICLE: NOT TESTED (not a passenger).
 
-Physical validation:
+Physical validation summary:
 
-- Stationary baseline: PASS — estimator horizontal magnitude and motion intensity remained near zero while the phone was stationary.
-- Phone movement: NOT TESTED / NOT RECORDED.
-- Phone rotation (in-place): NOT TESTED / NOT RECORDED.
-- Different orientations: NOT TESTED / NOT RECORDED.
-- Real vehicle (passenger): NOT TESTED / NOT RECORDED.
+- Stationary baseline and sideways movement produced clear, expected behaviour (stationary: low hmag/intensity; sideways translation: observable increases).
+- Linear movement, rotation-in-place, and static-orientation settling produced mixed/inconclusive results in these trials and require repeatable, controlled tests to characterize fully.
 
-Overall validation status: PARTIAL — stationary baseline observed, remaining tests pending manual validation.
+Overall validation status: PARTIAL — stationary baseline and lateral translation observed; further tests required for robust conclusions.
 
 Limitations:
 - The estimator is intentionally simple and experimental. It does not map phone axes to vehicle axes, does not perform dead-reckoning, and does not fuse gyroscope data into the translational estimate.

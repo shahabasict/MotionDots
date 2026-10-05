@@ -259,10 +259,10 @@ fun DiagnosticsScreen() {
         val motionProcessor = remember { MotionProcessor(sensor.reading, orientationSensor.reading) }
         DiagnosticCard(title = "Vehicle motion estimate (experimental)") {
             // start/stop processor with lifecycle
-            DisposableEffect(motionProcessor) {
-                motionProcessor.start()
-                onDispose { motionProcessor.stop() }
-            }
+                DisposableEffect(motionProcessor) {
+                    motionProcessor.start()
+                    onDispose { motionProcessor.stop() }
+                }
 
             val estimator = remember { VehicleMotionEstimator { motionProcessor.latest } }
             val estimates = remember { mutableStateListOf<com.motiondots.app.estimator.VehicleMotion>() }
@@ -277,9 +277,12 @@ fun DiagnosticsScreen() {
                         estimates.add(it)
                         if (estimates.size > 80) estimates.removeAt(0)
 
-                        // throttle debug logging to ~10 Hz (100 ms) to keep it lightweight
+                        // For controlled Test captures we can temporarily increase logging rate.
+                        // Use ~60 Hz (interval ~16 ms) when CAPTURE_HIGH_RATE is true.
+                        val CAPTURE_HIGH_RATE = true
+                        val intervalMs = if (CAPTURE_HIGH_RATE) 16L else 100L
                         val now = System.currentTimeMillis()
-                        if (now - lastLog >= 100L) {
+                        if (now - lastLog >= intervalMs) {
                             lastLog = now
                             // grab raw world-frame values from the MotionProcessor via its latest provider
                             val raw = motionProcessor.latest
@@ -290,6 +293,7 @@ fun DiagnosticsScreen() {
                             val gz = gyro?.z ?: Float.NaN
                             val gmag = if (gyro != null) kotlin.math.sqrt((gx * gx + gy * gy + gz * gz).toDouble()).toFloat() else Float.NaN
 
+                            // emit structured debug line for capture analysis
                             Log.d("MotionDotsDebug", "ts=${it.timestamp}, rawX=${raw?.x ?: Float.NaN}, rawY=${raw?.y ?: Float.NaN}, rawZ=${raw?.z ?: Float.NaN}, filtX=${it.filteredX}, filtY=${it.filteredY}, filtZ=${it.filteredZ}, gyroX=$gx, gyroY=$gy, gyroZ=$gz, gyroMag=$gmag, hmag=${it.horizontalMagnitude}, intensity=${it.motionIntensity}")
                         }
                     }
@@ -356,6 +360,20 @@ fun DiagnosticsScreen() {
                         drawPath(path = pathIntensity, color = Color(0xFF8E24AA), style = Stroke(width = 2.5f))
                     }
                 }
+            }
+        }
+
+        // Motion Cue Preview (Phase 10 prototype)
+        DiagnosticCard(title = "Motion Cue Preview") {
+            // use a short-lived estimator for preview that reads from the same MotionProcessor
+            val previewEstimator = remember { com.motiondots.app.estimator.VehicleMotionEstimator { motionProcessor.latest } }
+            DisposableEffect(previewEstimator) {
+                // estimator has no explicit start/stop; it's safe to keep as-is
+                onDispose { }
+            }
+
+            MotionCuePreview(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+                previewEstimator.estimate()
             }
         }
     }

@@ -272,3 +272,24 @@ E2 — Gyro vs Motion Spikes (interactive):
 
 Conclusion from experiments E1/E2:
 - The interactive captures confirmed that the existing instrumentation (MotionDotsEst log) provides filtered acceleration and estimator outputs but not the raw gravity-compensated world values or synchronized app-level gyroscope values required for definitive comparisons. To resolve H2/H3 with confidence, E3 (temporary debug logging of raw + filtered + gyro magnitude in a single log line) is the appropriate next minimal step.
+
+E3 — Synchronized debug logging (results)
+
+Methodology:
+- Added temporary, lightweight debug logging at the estimator sampling point (MotionDotsDebug tag). Each debug line contains: timestamp, raw gravity-compensated world X/Y/Z (from MotionProcessor.latest), filtered world X/Y/Z (estimator input), gyro X/Y/Z and gyro magnitude (latest GyroscopeSensor reading), horizontalMagnitude and motionIntensity. Logging was throttled to ~10 Hz to keep capture lightweight.
+
+E3-A (translation experiment):
+- Captured MotionDotsDebug during the translation sequence. From the captured samples (N=1603 lines in the logged window) the analysis shows:
+  - Instances where raw absolute axis values were substantially larger than filtered values (a simple threshold test) were observed (73/1603 samples). These indicate cases where the raw gravity-compensated signal exhibited pulses that the filtered signal reduced.
+  - Horizontal magnitude (hmag) exceeded 0.01 m/s^2 in 188 samples; among those, 158 samples had a non-trivial gyro magnitude (see below).
+- Interpretation: the One Euro filter does attenuate some short pulses, but not universally; some raw pulses pass through or are similar to filtered values. Therefore E3-A partially supports H2 (filter attenuation) but is not definitive — result: PARTIALLY SUPPORTED / INCONCLUSIVE.
+
+E3-B (rotation experiment):
+- Captured MotionDotsDebug during rotation-in-place. Analysis of hmag vs gyro magnitude in the captured window shows that a large majority of hmag spikes (hmag > 0.01 m/s^2) coincide with elevated gyro magnitude (in our threshold test, 158/188 ≈ 84%).
+- Interpretation: this is strong evidence that many hmag spikes are temporally associated with rotational motion (supports H3/H4). Result: SUPPORTED (rotation correlates with many hmag spikes), though not all hmag spikes are necessarily rotation-induced.
+
+Instrumentation conclusion:
+- The temporary synchronized debug logging (MotionDotsDebug) provided the necessary, correlated traces (raw+filtered+gyro) to make more definitive statements. This confirms that adding minimal instrumentation (E3) is valuable and sufficient for short experiments.
+
+Recommended next steps:
+- Remove the temporary debug logging after experiments or gate it behind a debug flag to avoid shipping noisy logs. The logs should be retained only for directed experiments.

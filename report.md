@@ -140,6 +140,14 @@ Minimum experiments recommended (no code change first):
 
 Action taken: analysis and documentation only. No application code changes were made in Phase 9. If you approve E3, I will implement a minimal DEBUG log emission and run targeted captures.
 
+Phase 9 experiments (E1/E2) results:
+
+- E1 — Raw vs Filtered Response: INCONCLUSIVE. The app currently logs filtered estimator outputs (MotionDotsEst) but does not emit the raw gravity-compensated world acceleration in the same log stream, so we cannot compare raw vs filtered response without adding temporary debug instrumentation.
+
+- E2 — Gyro vs Motion Spikes: INCONCLUSIVE. MotionDotsEst contained hmag spikes; system-level gyro samples exist in sensors-hal logs, but app-level gyro readings are not logged in the same stream for synchronized correlation. A minimal debug log combining raw+filtered+gyro magnitude is recommended for conclusive correlation.
+
+Overall Phase 9 status: Analysis complete; experiments executed but results are inconclusive due to insufficient synchronized instrumentation. Recommend E3 (small, temporary debug logging) as the minimal next step.
+
 Limitations:
 - The estimator is intentionally simple and experimental. It does not map phone axes to vehicle axes, does not perform dead-reckoning, and does not fuse gyroscope data into the translational estimate.
 - Motion intensity uses a heuristic normalization scale (3.0 m/s^2) and should be tuned with physical tests.

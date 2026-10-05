@@ -64,4 +64,7 @@ Manual device testing steps (used and recommended):
 3. For this session, TEST A (Stationary baseline) was executed and logs captured via adb logcat.
 
 ### Status
-Status: Resolved for interactive testing — guided physical validation tests (1–5) were executed using a connected Android device; stationary baseline and sideways movement produced clear results. TEST 6 (real vehicle) was skipped because the user was not a passenger. No remaining blockers for running local interactive tests.
+Status: Resolved for interactive testing — guided physical validation tests (1–5) were executed using a connected Android device; stationary baseline and sideways movement produced clear results. TEST 6 (real vehicle) was skipped because the user was not a passenger.
+
+Instrumentation note (limitation):
+- Current instrumentation (MotionDotsEst logs) emits filtered estimator outputs but does not emit raw gravity-compensated world acceleration or synchronized app-level gyroscope magnitudes in the same log stream. This prevents conclusive evaluation of E1 and E2 without adding a minimal debug log (E3). This is not a software bug; it is an instrumentation limitation and the recommended minimal remedy is temporary debug logging.

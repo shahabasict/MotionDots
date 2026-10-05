@@ -148,3 +148,11 @@ Phase 9 - investigation plan:
 Next actions (pending your decision):
 - I will perform E1/E2 via guided tests and record results, or
 - If you prefer, I can implement E3 (small debug logging) and run targeted captures. Implement only after you confirm.
+
+Phase 9 — experiments executed:
+
+- E1 executed interactively. Result: INCONCLUSIVE. MotionDotsEst log contains filtered outputs only; raw gravity-compensated world acceleration is not present in the same app log stream, preventing a direct comparison between raw vs filtered signals without modifying the app to emit raw values or using the UI manually.
+
+- E2 executed interactively. Result: INCONCLUSIVE. MotionDotsEst shows hmag spikes at times, and system logs contain sensor gyro samples, but the app does not emit synchronized app-level gyroscope values in the same log stream. Correlation between gyro magnitude and hmag spikes cannot be established conclusively with current instrumentation.
+
+Implication: E3 (temporary, minimal debug logging of raw world, filtered world, and gyro magnitude) is recommended to obtain synchronized traces for decisive analysis. This requires a very small, targeted logging addition and no algorithmic changes.

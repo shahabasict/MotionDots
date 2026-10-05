@@ -260,3 +260,15 @@ What to record in Phase 9 deliverables
 - report.md: concise Phase 9 summary listing findings and next steps.
 
 No code changes are made in this analysis step. If you want me to implement the minimal debug logging (E3) I will do a small change, build, and run further tests; otherwise proceed with the manual experiments (E1/E2) and report results.
+### Phase 9 Experiments — E1 / E2 (results summary)
+
+E1 — Raw vs Filtered Response (interactive):
+- Procedure: user kept phone still 10s, performed 5 short forward/back translations over ~10s, then kept still 10s. Logs from MotionDotsEst (adb) were captured for the period.
+- Observation: MotionDotsEst logs contain filtered values (filteredX/filteredY/filteredZ/hmag/motionIntensity) but do not include the raw gravity-compensated world acceleration (unfiltered) in the same log output. The Diagnostics UI currently shows the estimator filtered outputs but no synchronized raw-world numeric log lines. Therefore E1 cannot be conclusively evaluated with current instrumentation: we cannot compare raw vs filtered responses from logs alone.
+
+E2 — Gyro vs Motion Spikes (interactive):
+- Procedure: user rotated phone in place for 15s and held still for 10s while MotionDotsEst logs were collected.
+- Observation: MotionDotsEst logs show transient hmag spikes during some events. The system log (sensors-hal) contains gyro_sample lines, but these are not emitted by the app at the same logging level or correlated directly with MotionDotsEst lines. Because app-level gyroscope readings (the ones displayed in Diagnostics) are not logged in the same stream, we cannot conclusively correlate gyro magnitude to hmag spikes from existing logs. E2 is therefore INCONCLUSIVE with current instrumentation.
+
+Conclusion from experiments E1/E2:
+- The interactive captures confirmed that the existing instrumentation (MotionDotsEst log) provides filtered acceleration and estimator outputs but not the raw gravity-compensated world values or synchronized app-level gyroscope values required for definitive comparisons. To resolve H2/H3 with confidence, E3 (temporary debug logging of raw + filtered + gyro magnitude in a single log line) is the appropriate next minimal step.

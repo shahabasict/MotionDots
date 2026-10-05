@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.flow.collectLatest
+import android.util.Log
 import com.motiondots.app.sensor.MotionProcessor
 import com.motiondots.app.sensor.WorldAcceleration
 import com.motiondots.app.estimator.VehicleMotionEstimator
@@ -268,11 +269,29 @@ fun DiagnosticsScreen() {
 
             // poll estimator periodically and keep a short buffer for plotting
             LaunchedEffect(Unit) {
+                var lastLog = 0L
                 while (true) {
                     val e = estimator.estimate()
                     e?.let {
+                        // keep samples for plotting
                         estimates.add(it)
                         if (estimates.size > 80) estimates.removeAt(0)
+
+                        // throttle debug logging to ~10 Hz (100 ms) to keep it lightweight
+                        val now = System.currentTimeMillis()
+                        if (now - lastLog >= 100L) {
+                            lastLog = now
+                            // grab raw world-frame values from the MotionProcessor via its latest provider
+                            val raw = motionProcessor.latest
+                            // grab latest gyro reading if available
+                            val gyro = gyroSensor.reading.value
+                            val gx = gyro?.x ?: Float.NaN
+                            val gy = gyro?.y ?: Float.NaN
+                            val gz = gyro?.z ?: Float.NaN
+                            val gmag = if (gyro != null) kotlin.math.sqrt((gx * gx + gy * gy + gz * gz).toDouble()).toFloat() else Float.NaN
+
+                            Log.d("MotionDotsDebug", "ts=${it.timestamp}, rawX=${raw?.x ?: Float.NaN}, rawY=${raw?.y ?: Float.NaN}, rawZ=${raw?.z ?: Float.NaN}, filtX=${it.filteredX}, filtY=${it.filteredY}, filtZ=${it.filteredZ}, gyroX=$gx, gyroY=$gy, gyroZ=$gz, gyroMag=$gmag, hmag=${it.horizontalMagnitude}, intensity=${it.motionIntensity}")
+                        }
                     }
                     kotlinx.coroutines.delay(40)
                 }

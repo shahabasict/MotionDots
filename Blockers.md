@@ -68,3 +68,6 @@ Status: Resolved for interactive testing — guided physical validation tests (1
 
 Instrumentation note (limitation):
 - Current instrumentation (MotionDotsEst logs) emits filtered estimator outputs but does not emit raw gravity-compensated world acceleration or synchronized app-level gyroscope magnitudes in the same log stream. This prevents conclusive evaluation of E1 and E2 without adding a minimal debug log (E3). This is not a software bug; it is an instrumentation limitation and the recommended minimal remedy is temporary debug logging.
+
+Phase 11I note:
+- MotionEngine foundation added as a pure-Kotlin component. No blockers encountered during implementation; unit tests were added and passed locally. No changes were made to sensors/estimator/UI in this phase.

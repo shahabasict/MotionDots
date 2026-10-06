@@ -156,3 +156,24 @@ Phase 9 — experiments executed:
 - E2 executed interactively. Result: INCONCLUSIVE. MotionDotsEst shows hmag spikes at times, and system logs contain sensor gyro samples, but the app does not emit synchronized app-level gyroscope values in the same log stream. Correlation between gyro magnitude and hmag spikes cannot be established conclusively with current instrumentation.
 
 Implication: E3 (temporary, minimal debug logging of raw world, filtered world, and gyro magnitude) is recommended to obtain synchronized traces for decisive analysis. This requires a very small, targeted logging addition and no algorithmic changes.
+
+## Phase 11 - Diagnostics (Position smoothing / visibility)
+
+- Added debug instrumentation to MotionCuePreview to help determine why dots appeared to move very little after smoothing changes.
+- Diagnostic artifacts created:
+  - PHASE11_DEBUG_RESULTS.md
+  - PHASE11_SMOOTHNESS_RESULTS.md
+  - PHASE11_DIAGNOSTIC_RESULTS.md
+
+Summary of diagnostic findings (short):
+- Estimator is producing non-zero horizontalX/horizontalY and motionIntensity when device is moved.
+- Per-dot target displacement is small for many dots because displacement = positiveAlign * intensity * maxDispPx; positiveAlign is small for dots not near motion direction.
+- Direction smoothing contributes modestly to reduction in instantaneous displacement but is not the primary cause.
+- Rendering loop and spring integrator are active; smoothedPositions update each frame. A transient artifact exists because smoothedPositions were initialized to (0,0) — we recommend initializing them to base perimeter positions when canvas size is known.
+
+- Phase 11 render diagnostic: added a TEST DOT MOTION button and a precise diagnostic readout to verify estimator -> target -> rendered updates. See PHASE11_RENDER_DIAGNOSTIC_RESULTS.md for instructions and result fields to fill during manual testing.
+
+## Phase 11I - MotionEngine Foundation
+
+- Added a new pure-Kotlin MotionEngine and MotionState (app/src/main/java/com/motiondots/app/motion/MotionEngine.kt). It implements a gravity estimator (slow accel LP with gyro-modulated correction), horizontal projection, initial accel LP (~100ms), felt force sign convention, dead-zone, tanh limiting, and a gyro-based handlingConfidence.
+- Added unit tests (app/src/test/java/com/motiondots/app/motion/MotionEngineTest.kt) that validate stationary behavior, sign conventions, dead-zone, limiting, handling confidence, and timestamp handling.

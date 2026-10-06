@@ -290,6 +290,12 @@ E3-B (rotation experiment):
 
 Instrumentation conclusion:
 - The temporary synchronized debug logging (MotionDotsDebug) provided the necessary, correlated traces (raw+filtered+gyro) to make more definitive statements. This confirms that adding minimal instrumentation (E3) is valuable and sufficient for short experiments.
+ - The temporary synchronized debug logging (MotionDotsDebug) provided the necessary, correlated traces (raw+filtered+gyro) to make more definitive statements. This confirms that adding minimal instrumentation (E3) is valuable and sufficient for short experiments.
+
+Phase 11 fix notes:
+- Diagnostics screen column was not scrollable, causing the new "Motion Cue Preview" card to be off-screen on some devices. Made the diagnostics column vertically scrollable so the preview is reachable. This does not change sensor processing or estimator behavior.
 
 Recommended next steps:
 - Remove the temporary debug logging after experiments or gate it behind a debug flag to avoid shipping noisy logs. The logs should be retained only for directed experiments.
+MotionEngine foundation (Phase 11I)
+- Implemented a pure-Kotlin MotionEngine that estimates gravity via a slow accelerometer low-pass with gyro-influenced correction rate, computes linear acceleration, projects horizontal components, applies a short low-pass to acceleration (~100ms), computes felt force = -filtered acceleration, applies a dead-zone (0.15 m/s²) and tanh-based soft limiting, and emits a handlingConfidence based on gyro magnitude. See app/src/main/java/com/motiondots/app/motion/MotionEngine.kt for implementation and heuristics.

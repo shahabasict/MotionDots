@@ -71,3 +71,6 @@ Instrumentation note (limitation):
 
 Phase 11I note:
 - MotionEngine foundation added as a pure-Kotlin component. No blockers encountered during implementation; unit tests were added and passed locally. No changes were made to sensors/estimator/UI in this phase.
+
+Phase 11J note:
+- SensorBridge implemented and wired to MotionEngine within Diagnostics. No blockers encountered; sensor registration/unregistration required careful listener management (listener stored and unregistered explicitly).

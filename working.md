@@ -177,3 +177,7 @@ Summary of diagnostic findings (short):
 
 - Added a new pure-Kotlin MotionEngine and MotionState (app/src/main/java/com/motiondots/app/motion/MotionEngine.kt). It implements a gravity estimator (slow accel LP with gyro-modulated correction), horizontal projection, initial accel LP (~100ms), felt force sign convention, dead-zone, tanh limiting, and a gyro-based handlingConfidence.
 - Added unit tests (app/src/test/java/com/motiondots/app/motion/MotionEngineTest.kt) that validate stationary behavior, sign conventions, dead-zone, limiting, handling confidence, and timestamp handling.
+
+## Phase 11J - SensorBridge + MotionEngine Diagnostics
+
+- Implemented SensorBridge (app/src/main/java/com/motiondots/app/sensor/SensorBridge.kt) that registers accelerometer and gyroscope listeners and forwards combined sensor samples to MotionEngine using sensor event timestamps (ns -> ms). Added a Diagnostics card showing MotionEngine outputs without altering existing MotionProcessor or renderer. Build and unit tests passed; APK installed and launched on device for manual verification.

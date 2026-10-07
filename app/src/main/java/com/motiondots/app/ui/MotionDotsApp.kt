@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.runtime.*
@@ -19,6 +21,8 @@ import com.motiondots.app.sensor.MotionProcessor
 import com.motiondots.app.sensor.WorldAcceleration
 import com.motiondots.app.estimator.VehicleMotionEstimator
 import com.motiondots.app.estimator.VehicleMotion
+import com.motiondots.app.motion.MotionEngine
+import com.motiondots.app.sensor.SensorBridge
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,9 +150,11 @@ fun SettingRow(title: String, description: String) {
 
 @Composable
 fun DiagnosticsScreen() {
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)) {
+    val scrollState = rememberScrollState()
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(16.dp)) {
         Text("Diagnostics", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -375,6 +381,26 @@ fun DiagnosticsScreen() {
             MotionCuePreview(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 previewEstimator.estimate()
             }
+        }
+
+        // MotionEngine diagnostics (Phase 11J) — do not affect the renderer
+        DiagnosticCard(title = "MotionEngine (experimental)") {
+            val context = LocalContext.current
+            // create engine and bridge once
+            val engine = remember { MotionEngine() }
+            val bridge = remember { SensorBridge(context) }
+            val state = remember { mutableStateOf<com.motiondots.app.motion.MotionState?>(null) }
+
+            DisposableEffect(bridge, engine) {
+                bridge.start(engine) { ms -> state.value = ms }
+                onDispose { bridge.stop() }
+            }
+
+            state.value?.let { s ->
+                Text("forward: ${"%.3f".format(s.forwardAcceleration)}  lateral: ${"%.3f".format(s.lateralAcceleration)}")
+                Text("feltForward: ${"%.3f".format(s.feltForward)}  feltLateral: ${"%.3f".format(s.feltLateral)}")
+                Text("handlingConfidence: ${"%.3f".format(s.handlingConfidence)}  ts: ${s.timestamp}")
+            } ?: Text("Waiting for MotionEngine samples...", color = Color.Gray)
         }
     }
 }

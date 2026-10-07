@@ -299,3 +299,6 @@ Recommended next steps:
 - Remove the temporary debug logging after experiments or gate it behind a debug flag to avoid shipping noisy logs. The logs should be retained only for directed experiments.
 MotionEngine foundation (Phase 11I)
 - Implemented a pure-Kotlin MotionEngine that estimates gravity via a slow accelerometer low-pass with gyro-influenced correction rate, computes linear acceleration, projects horizontal components, applies a short low-pass to acceleration (~100ms), computes felt force = -filtered acceleration, applies a dead-zone (0.15 m/s²) and tanh-based soft limiting, and emits a handlingConfidence based on gyro magnitude. See app/src/main/java/com/motiondots/app/motion/MotionEngine.kt for implementation and heuristics.
+
+Phase 11J - SensorBridge
+- Implemented SensorBridge to forward Android accelerometer and gyroscope samples into MotionEngine using sensor event timestamps (event.timestamp in ns converted to ms). The bridge registers listeners for ACCELEROMETER and GYROSCOPE and forwards combined samples to MotionEngine on each sensor event. See app/src/main/java/com/motiondots/app/sensor/SensorBridge.kt.

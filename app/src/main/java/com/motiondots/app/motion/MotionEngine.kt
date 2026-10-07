@@ -53,6 +53,11 @@ class MotionEngine {
     }
 
     /**
+     * Expose the current gravity estimate for diagnostics/tests (m/s^2)
+     */
+    fun getEstimatedGravity(): Triple<Float, Float, Float> = Triple(gx, gy, gz)
+
+    /**
      * Add a sample: accelerometer in m/s^2 (ax,ay,az) and gyroscope in rad/s (gx,gy,gz),
      * timestamp in milliseconds (monotonic). Returns the new MotionState.
      */
@@ -69,13 +74,38 @@ class MotionEngine {
         val dt = if (last == null) 0.0f else ((timestampMs - last) / 1000.0f).coerceAtLeast(0f)
         lastTs = timestampMs
 
-        // 1) Gyro-based gravity prediction (foundation): we don't integrate orientation here
-        // but we use gyro magnitude to modulate how quickly we trust accelerometer corrections.
+        // 1) Gyro-based gravity propagation: rotate current gravity estimate forward by
+        // the angular velocity (gyroX/Y/Z in rad/s) over dt. This integrates rotation
+        // to keep the gravity vector in the device frame as the device rotates.
         val gyroMag = sqrt((gyroX * gyroX + gyroY * gyroY + gyroZ * gyroZ).toDouble()).toFloat()
-
-        // 2) Slow accelerometer gravity correction (exponential LPF):
         if (dt > 0f) {
-            // modulate correction rate with gyro: when gyro is high, reduce correction (less trust).
+            val angle = gyroMag * dt
+            if (angle > 1e-9f) {
+                // axis
+                val ax = gyroX / gyroMag
+                val ay = gyroY / gyroMag
+                val az = gyroZ / gyroMag
+                // current gravity vector
+                val vx = gx
+                val vy = gy
+                val vz = gz
+                // Rodrigues' rotation
+                val cosA = kotlin.math.cos(angle.toDouble()).toFloat()
+                val sinA = kotlin.math.sin(angle.toDouble()).toFloat()
+                val dot = ax * vx + ay * vy + az * vz
+                val rx = vx * cosA + (ay * vz - az * vy) * sinA + ax * dot * (1f - cosA)
+                val ry = vy * cosA + (az * vx - ax * vz) * sinA + ay * dot * (1f - cosA)
+                val rz = vz * cosA + (ax * vy - ay * vx) * sinA + az * dot * (1f - cosA)
+                gx = rx
+                gy = ry
+                gz = rz
+            }
+        }
+
+        // 2) Slow accelerometer gravity correction (exponential LPF): the accelerometer
+        // provides a direct gravity measurement when linear accel is small; we correct
+        // the propagated gravity vector slowly toward the measured accel vector.
+        if (dt > 0f) {
             val mod = 1f + gyroMag * 5f
             val alpha = (dt / (gravityTau * mod)).coerceIn(0f, 1f)
             gx += (accelX - gx) * alpha
@@ -98,7 +128,6 @@ class MotionEngine {
         val dot = linX * gnx + linY * gny + linZ * gnz
         val hx = linX - dot * gnx
         val hy = linY - dot * gny
-        val hz = linZ - dot * gnz
 
         // 5) passenger/screen-relative mapping heuristic:
         // assume device Y points forward (negative when moving forward), X is rightward.

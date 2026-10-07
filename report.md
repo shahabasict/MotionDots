@@ -154,6 +154,11 @@ Limitations:
 
 Build result:
 - BUILD SUCCESSFUL; APK path: app/build/outputs/apk/debug/app-debug.apk
-
 Git commit:
 - Current commit contains Phase 8 implementation: (will appear in git log) "Phase 8: Add vehicle motion estimation"
+
+## Phase 11I - MotionEngine Foundation
+Status: Implemented (foundation)
+
+Summary:
+- Added a pure-Kotlin MotionEngine (app/src/main/java/com/motiondots/app/motion/MotionEngine.kt) providing gravity estimation (slow accelerometer LP with gyro modulation), linear acceleration, horizontal projection, a short accel LP (~100ms), felt-force computation (felt = -filtered accel), dead-zone (~0.15 m/s^2), tanh soft limiting, and a gyro-based handling confidence metric. Unit tests were added and executed successfully. The engine is not yet wired to UI/Diagnostics; it is implemented for unit-testing and future integration.

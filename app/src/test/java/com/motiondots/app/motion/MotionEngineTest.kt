@@ -3,6 +3,8 @@ package com.motiondots.app.motion
 import org.junit.Assert.*
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.sin
+import kotlin.math.cos
 
 class MotionEngineTest {
     @Test
@@ -18,6 +20,36 @@ class MotionEngineTest {
         assertEquals(0f, state.lateralAcceleration, 0.05f)
         assertEquals(0f, state.feltForward, 0.1f)
         assertEquals(0f, state.feltLateral, 0.1f)
+    }
+
+    @Test
+    fun rotating_phone_rotates_gravity_estimate_and_produces_no_linear_motion() {
+        val engine = MotionEngine()
+        val ts0 = 1000L
+        // start upright
+        engine.addSample(0f, 0f, 9.80665f, 0f, 0f, 0f, ts0)
+
+        // rotate 90 degrees around X over 1 second -> angular velocity ~ pi/2 rad / 1s
+        val totalAngle = Math.PI.toFloat() / 2f
+        val duration = 1000f
+        val steps = 20
+        val dtMs = (duration / steps).toLong()
+        val omega = totalAngle / (duration / 1000f) // rad/s
+
+        var t = ts0
+        for (i in 1..steps) {
+            t += dtMs
+            // compute rotated gravity vector analytically for this step angle
+            val angle = omega * (i * dtMs.toFloat() / 1000f)
+            val gx = 0f
+            val gy = (sin(angle.toDouble()) * 9.80665).toFloat() * -1f // device Y negative forward sign convention
+            val gz = (cos(angle.toDouble()) * 9.80665).toFloat()
+            // supply gyro indicating rotation about X
+            val state = engine.addSample(0f, gy, gz, omega, 0f, 0f, t)
+            // linear felt forces should remain near zero
+            assertEquals(0f, state.feltForward, 0.5f)
+            assertEquals(0f, state.feltLateral, 0.5f)
+        }
     }
 
     @Test
